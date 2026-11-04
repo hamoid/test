@@ -24,7 +24,10 @@ jobs:
           sudo apt-get install -y xvfb mesa-utils libgl1-mesa-dri libegl1
 
       - name: Print OpenGL info
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" glxinfo -B
+        # -t prints the visual/fbconfig tables, including the caveat ("cav") column
+        run: |
+          xvfb-run -a -s "-screen 0 1280x1024x24" glxinfo -B
+          xvfb-run -a -s "-screen 0 1280x1024x24" glxinfo -t
 
       - name: Compile
         run: ./gradlew classes
