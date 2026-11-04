@@ -1,0 +1,42 @@
+name: Run on commit
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Install virtual display and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb mesa-utils libgl1-mesa-dri libegl1
+
+      - name: Print OpenGL info
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" glxinfo -B
+
+      - name: Compile
+        run: ./gradlew classes
+
+      # The program itself takes about a second; the rest is Gradle's up-to-date checks.
+      - name: Run program
+        run: xvfb-run -a -s "-screen 0 1280x1024x24" timeout 30s ./gradlew run --stacktrace
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot
+          path: screenshot.png
+          if-no-files-found: warn
