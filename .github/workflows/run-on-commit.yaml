@@ -18,23 +18,30 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # xwfb-run runs X11 clients on Xwayland inside a headless Wayland compositor (weston).
+      # Unlike Xvfb, Xwayland can expose sRGB-capable GLX configs, which OPENRNDR's SDL backend requires.
       - name: Install virtual display and Mesa
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb mesa-utils libgl1-mesa-dri libegl1
+          sudo apt-get install -y xwayland-run weston mesa-utils libgl1-mesa-dri libegl1
 
       - name: Print OpenGL info
-        # -t prints the visual/fbconfig tables, including the caveat ("cav") column
+        # -t prints the visual/fbconfig tables; check the "s rgb" column for sRGB-capable configs
         run: |
-          xvfb-run -a -s "-screen 0 1280x1024x24" glxinfo -B
-          xvfb-run -a -s "-screen 0 1280x1024x24" glxinfo -t
+          xwfb-run --help || true
+          ls -l /dev/dri || echo "no /dev/dri"
+          xwfb-run -c weston -- glxinfo -B
+          xwfb-run -c weston -- glxinfo -t
 
       - name: Compile
         run: ./gradlew classes
 
       # The program itself takes about a second; the rest is Gradle's up-to-date checks.
+      # SDL_VIDEO_DRIVER=x11 keeps SDL on the GLX path instead of talking to weston directly.
       - name: Run program
-        run: xvfb-run -a -s "-screen 0 1280x1024x24" timeout 30s ./gradlew run --stacktrace
+        env:
+          SDL_VIDEO_DRIVER: x11
+        run: xwfb-run -c weston -- timeout 30s ./gradlew run --stacktrace
 
       - name: Upload screenshot
         if: always()
